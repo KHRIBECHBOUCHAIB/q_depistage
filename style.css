@@ -1,0 +1,57 @@
+/* General body styles */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f9;
+    color: #161515;
+    margin: 0;
+    padding: 0;
+}
+
+/* Header styles */
+h1 {
+    color: #0511f5;
+    font-size: 24px;
+    text-align: center;
+}
+
+/* Button styles */
+button, .stButton>button {
+    background-color: #2142ca; /* Green background for better visibility */
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+}
+
+button:hover, .stButton>button:hover {
+    background-color: #087515; /* Darker shade of green on hover */
+}
+
+/* Input field styles */
+input[type="text"], input[type="password"], input[type="date"], .stTextInput>div>div>input, .stDateInput>input {
+    padding: 8px 10px;
+    display: inline-block;
+    border-radius: 4px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease; /* Smooth transition for border color change */
+}
+
+input[type="text"]:focus, input[type="password"]:focus, input[type="date"]:focus, .stTextInput>div>div>input:focus, .stDateInput>input:focus {
+    border-color: #1d631f; /* Green border on focus */
+}
+
+/* Styling for Streamlit sliders to be simpler */
+.stSlider .thumb {
+    background-color: #4CAF50; /* Green thumb for sliders */
+}
+
+.stSlider .track {
+    background-color: #ccc; /* Light grey track for sliders */
+}

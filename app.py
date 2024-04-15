@@ -1,20 +1,57 @@
+
 import streamlit as st
-# Load your logo image
-logo = "images/logo.jpg"
-st.image(logo, width=100)
-# Titre de l'application
+import pymongo
+import hmac
+import hashlib
+from datetime import datetime, time
+
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+local_css("style.css")  # Ensure this path matches where you've saved your CSS file
+
+# Initialize connection to MongoDB
+def init_connection():
+    client = pymongo.MongoClient(st.secrets["mongo_uri"])
+    return client
+
+client = init_connection()
+db = client[st.secrets["mongo"]["database_name"]]
+
+def check_password():
+    """Check the password and store the state in session if correct."""
+    if 'password_verified' not in st.session_state or not st.session_state['password_verified']:
+        with st.sidebar.form(key='Password_form'):
+            password_input = st.text_input("Entrez votre mot de passe :", type="password", placeholder="Tapez votre mot de passe ici")
+            submit_button = st.form_submit_button("Soumettre")
+            if submit_button and password_input:
+                hashed_input = hmac.new(
+                    key=st.secrets["secret_key"].encode(),
+                    msg=password_input.encode(),
+                    digestmod=hashlib.sha256
+                ).hexdigest()
+                if hmac.compare_digest(hashed_input, st.secrets["password_hash"]):
+                    st.session_state['password_verified'] = True
+                else:
+                    st.error("Mot de passe incorrect. Veuillez réessayer.")
+                    return False
+    return st.session_state.get('password_verified', False)
+
+if not check_password():
+    st.stop()
+
+st.image("images/logo.jpg", width=100)
 st.title("Questionnaire de Dépistage du Spectre de l'Autisme de Haut Niveau de Fonctionnement (ASSQ)")
 
-# Collecte des informations sur l'enfant
-nom_enfant = st.text_input("Nom de l'enfant :")
-date_naissance_enfant = st.text_input("Date de naissance de l'enfant :")
-
-# Collecte des informations sur l'observateur
-nom_observateur = st.text_input("Nom de l'observateur :")
-date_observation = st.text_input("Date de l'observation :")
+nom_enfant = st.sidebar.text_input("Nom de l'enfant :")
+date_naissance_enfant = st.sidebar.date_input("Date de naissance de l'enfant :", datetime.now())
+nom_observateur = st.sidebar.text_input("Nom de l'observateur :")
+date_observation = st.sidebar.date_input("Date de l'observation :", datetime.now())
 
 st.write("Cet enfant se distingue des autres enfants de son âge de la manière suivante :")
 
+# Liste des questions
 # Liste des questions
 questions = [
     "Est vieux jeu ou précoce",
@@ -45,20 +82,37 @@ questions = [
     "A une expression faciale remarquablement inhabituelle",
     "A une posture remarquablement inhabituelle"
 ]
+reponses = ["Jamais", "Parfois", "Tout le temps"]
 
-# Réponses possibles
-reponses = ["Non", "Un peu", "Oui"]
+answers = {question: st.select_slider(question, options=reponses) for question in questions}
 
-# Initialisation de la chaîne de caractères pour les réponses
-reponses_texte = f"Nom de l'enfant : {nom_enfant}\nDate de naissance de l'enfant : {date_naissance_enfant}\nNom de l'observateur : {nom_observateur}\nDate de l'observation : {date_observation}\n\nRéponses au questionnaire :\n"
+if st.sidebar.button('Envoyer les réponses'):
+    # Convert date to datetime for MongoDB operations
+    date_naissance_enfant_dt = datetime.combine(date_naissance_enfant, time.min)
+    date_observation_dt = datetime.combine(date_observation, time.min)
+    
+    existing_entry = db.responses.find_one({
+        "nom_enfant": nom_enfant,
+        "date_observation": date_observation_dt
+    })
 
-# Génération des questions et des sélecteurs de réponses
-for question in questions:
-    reponse = st.select_slider(question, options=reponses)
-    reponses_texte += f"{question}: {reponse}\n"
+    if existing_entry:
+        st.warning("Un enregistrement pour cet enfant et cette observation existe déjà.")
+    else:
+        responses_collection = db.responses
+        response_data = {
+            "nom_enfant": nom_enfant,
+            "date_naissance_enfant": date_naissance_enfant_dt,
+            "nom_observateur": nom_observateur,
+            "date_observation": date_observation_dt,
+            "answers": answers
+        }
+        responses_collection.insert_one(response_data)
+        st.success("Merci pour vos réponses.")
+        if 'password_verified' in st.session_state:
+            del st.session_state['password_verified']  # Clear the password session state after successful submission
 
-# Bouton pour soumettre les réponses
-if st.button('Envoyer les réponses'):
-    st.success("Merci pour vos réponses. Vous pouvez désormais télécharger le document contenant vos réponses et nous le faire parvenir.")
-    # Lien de téléchargement pour le texte des réponses
-    st.download_button(label="Télécharger les réponses", data=reponses_texte, file_name="reponses_assq.txt", mime='text/plain')
+if st.sidebar.button("Réinitialiser"):
+    if 'password_verified' in st.session_state:
+        del st.session_state['password_verified']
+    st.experimental_rerun()
